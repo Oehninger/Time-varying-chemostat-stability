@@ -17,24 +17,27 @@ D <- 1  # dilution rates
 mM <- 1.4 # maximal growth rate
 ks <- 0.1  # half-saturation
 t0 <-  0# initial time 
-t1 <-  30# final time  
-s0 <- function(t) 90+10*cos(2*pi*t)
+t1 <-  50# final time  
+I0<-t1*5+1
+I1<-t1*10+1
+s0 <- function(t) 90+10*cos(2*pi*t/5)
 
 library(ggplot2)
 library(reshape2)
 library(latex2exp)
 library(gridExtra)
-lista_tau <- seq(0.3,1.5,0.3)
+
+lista_tau <- seq(1,2,0.2)
 for (i in lista_tau){
-    yinit <- c(20,3,35,1.5,50,0.8)
+  yinit <- c(20,3,35,1.5,50,0.8)
   parms <- list(tau=i, initial=yinit)
-  out0 <- dde(y=yinit, func=yprime, parms=parms, times=seq(t0,t1,0.1), hbsize=2000)  
+  out0 <- dde(y=yinit, func=yprime, parms=parms, times=seq(t0,t1,0.1), hbsize=20000)  
   M<-cbind(out0$time, out0$y1, out0$y2)
-  Ma<-M[151:301,1:3]
+  Ma<-M[I0:I1,1:3]
   M1<-cbind(out0$time, out0$y3, out0$y4)
-  M1a<-M1[151:301,1:3]
+  M1a<-M1[I0:I1,1:3]
   M2<-cbind(out0$time, out0$y5, out0$y6)
-  M2a<-M2[151:301,1:3]
+  M2a<-M2[I0:I1,1:3]
   outdf=data.frame(M)
   outdf1=data.frame(M1)
   outdf2=data.frame(M2)
@@ -83,3 +86,24 @@ for (i in lista_tau){
   styled1a
   grid.arrange(styled1,styled1a,nrow=1)
 }
+
+eqv1= function(t){exp(D*t)*D*10*cos(2*pi*t/5)}
+av1= function(t){integrate(eqv1, lower =  -Inf, upper = t)$value}
+## define the washout
+vp1= function(t){exp(-D*t)*av1(t)}
+## define Sigma_0
+S0= function(t){90+vp1(t)}
+av2= function(t){(mM*S0(t)/(ks+S0(t)))}
+lista_1=seq(0,5, 1)
+
+U<- numeric(length(lista_1))
+for (j in lista_1){
+  U[j]=av2(j)
+}
+
+V=spline(lista_1, U, n = 201, method = "fmm")
+#V
+Mb<-V$y[1:200]
+#Mb
+Averspl=sum(Mb)*0.025/5
+print(Averspl)
