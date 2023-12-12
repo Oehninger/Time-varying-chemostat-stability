@@ -5,21 +5,24 @@ yprime <- function(t,y,parms) {
     lag <- parms$initial
   else
     lag <- pastvalue(t - parms$tau)
-  y1 <- D*s0(t)-D*y[1]-(mM*y[1]/(ks+y[1]))*y[2] 
-  y2 <- (mM*lag[1]/(ks+lag[1]))*y[2]-D*y[2]
-  y3 <- D*s0(t)-D*y[3]-(mM*y[3]/(ks+y[3]))*y[4] 
-  y4 <- (mM*lag[3]/(ks+lag[3]))*y[4]-D*y[4]
-  y5 <- D*s0(t)-D*y[5]-(mM*y[5]/(ks+y[5]))*y[6] 
-  y6 <- (mM*lag[5]/(ks+lag[5]))*y[6]-D*y[6]
+  y1 <- parms$D*s0(t)-parms$D*y[1]-(mM*y[1]/(ks+y[1]))*y[2] 
+  y2 <- (mM*lag[1]/(ks+lag[1]))*y[2]-parms$D*y[2]
+  y3 <- parms$D*s0(t)-parms$D*y[3]-(mM*y[3]/(ks+y[3]))*y[4] 
+  y4 <- (mM*lag[3]/(ks+lag[3]))*y[4]-parms$D*y[4]
+  y5 <- parms$D*s0(t)-parms$D*y[5]-(mM*y[5]/(ks+y[5]))*y[6] 
+  y6 <- (mM*lag[5]/(ks+lag[5]))*y[6]-parms$D*y[6]
   return(c(y1,y2,y3,y4,y5,y6))
 }
 D <- 1  # dilution rates
 mM <- 1.4 # maximal growth rate
 ks <- 0.1  # half-saturation
 t0 <-  0# initial time 
-t1 <-  50# final time  
+t1 <-  50# final time 1  
+t2 <-  100# final time 2
 I0<-t1*5+1
 I1<-t1*10+1
+II0<-t2*5+1
+II1<-t2*10+1
 s0 <- function(t) 90+10*cos(2*pi*t/5)
 
 library(ggplot2)
@@ -30,7 +33,7 @@ library(gridExtra)
 lista_tau <- seq(1,2,0.2)
 for (i in lista_tau){
   yinit <- c(20,3,35,1.5,50,0.8)
-  parms <- list(tau=i, initial=yinit)
+  parms <- list(tau=i, initial=yinit, D=1 )
   out0 <- dde(y=yinit, func=yprime, parms=parms, times=seq(t0,t1,0.1), hbsize=20000)  
   M<-cbind(out0$time, out0$y1, out0$y2)
   Ma<-M[I0:I1,1:3]
@@ -107,3 +110,86 @@ Mb<-V$y[1:200]
 #Mb
 Averspl=sum(Mb)*0.025/5
 print(Averspl)
+
+####
+
+lista_D <- seq(1,1.5,0.1)
+for (i in lista_D){
+  eqv1= function(t){exp(i*t)*i*10*cos(2*pi*t/5)}
+  av1= function(t){integrate(eqv1, lower =  -Inf, upper = t)$value}
+  ## define the washout
+  vp1= function(t){exp(-i*t)*av1(t)}
+  ## define Sigma_0
+  S0= function(t){90+vp1(t)}
+  av2= function(t){(mM*S0(t)/(ks+S0(t)))}
+  lista_1=seq(0,5, 1)
+  U<- numeric(length(lista_1))
+  for (j in lista_1){
+    U[j]=av2(j)
+  }
+    V=spline(lista_1, U, n = 201, method = "fmm")
+    Mb<-V$y[1:200]
+  Averspl=sum(Mb)*0.025/5
+  print(Averspl)
+}
+
+
+lista_D <- seq(1.25,1.45,0.05)
+for (i in lista_D){
+  yinit <- c(20,3,35,1.5,50,0.8)
+  parms <- list(tau=1, initial=yinit, D=i)
+  out0 <- dde(y=yinit, func=yprime, parms=parms, times=seq(t0,t2,0.1), hbsize=20000)  
+  M<-cbind(out0$time, out0$y1, out0$y2)
+  Ma<-M[II0:II1,1:3]
+  M1<-cbind(out0$time, out0$y3, out0$y4)
+  M1a<-M1[II0:II1,1:3]
+  M2<-cbind(out0$time, out0$y5, out0$y6)
+  M2a<-M2[II0:II1,1:3]
+  outdf=data.frame(M)
+  outdf1=data.frame(M1)
+  outdf2=data.frame(M2)
+  outdfa=data.frame(Ma)
+  outdf1a=data.frame(M1a)
+  outdf2a=data.frame(M2a)
+  names(outdf)=c("Time","Nitrate", "Dunaliella tertiolecta")
+  names(outdf1)=c("Time","Nitrate", "Dunaliella tertiolecta")
+  names(outdf2)=c("Time","Nitrate", "Dunaliella tertiolecta")
+  names(outdfa)=c("Time","Nitrate", "Dunaliella tertiolecta")
+  names(outdf1a)=c("Time","Nitrate", "Dunaliella tertiolecta")
+  names(outdf2a)=c("Time","Nitrate", "Dunaliella tertiolecta")
+  tmppred=melt(outdf,id.var=c("Time"),variable.name="Patchs",value.name="Densities")
+  tmppred1=melt(outdf1,id.var=c("Time"),variable.name="Patchs",value.name="Densities")
+  tmppred2=melt(outdf2,id.var=c("Time"),variable.name="Patchs",value.name="Densities")
+  tmppreda=melt(outdfa,id.var=c("Time"),variable.name="Patchs",value.name="Densities")
+  tmppred1a=melt(outdf1a,id.var=c("Time"),variable.name="Patchs",value.name="Densities")
+  tmppred2a=melt(outdf2a,id.var=c("Time"),variable.name="Patchs",value.name="Densities")
+  base1=ggplot(data=tmppred,aes(x=Time,y=Densities)) + geom_path(size=1,colour="black")
+  base1=base1+geom_path(data=tmppred1,colour="blue",size=1,aes(x=Time,y=Densities)) 
+  base1=base1+geom_path(data=tmppred2,colour="orange",size=1, aes(x=Time,y=Densities))
+  base1=base1 +facet_wrap(~Patchs, scales ="free_y", ncol = 1)
+  labelled1=base1+ 
+    xlab(TeX(r"(Time (d) )")) +
+    ylab(TeX(r"(Densities ($\mu$ Mol $L^{-1}$))"))
+  styled1=labelled1+theme_bw()+theme(
+    plot.title = element_text(size=12),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10)
+  )
+  styled1
+  #Asymptotic
+  base1a=ggplot(data=tmppreda,aes(x=Time,y=Densities)) + geom_path(size=1,colour="black")
+  base1a=base1a+geom_path(data=tmppred1a,colour="blue",size=1,aes(x=Time,y=Densities)) 
+  base1a=base1a+geom_path(data=tmppred2a,colour="orange",size=1, aes(x=Time,y=Densities))
+  base1a=base1a +facet_wrap(~Patchs, scales ="free_y", ncol = 1)
+  labelled1a=base1a+ 
+    xlab(TeX(r"(Time (d) )")) +
+    ylab(TeX(r"(Densities ($\mu$ Mol $L^{-1}$) )"))
+  styled1a=labelled1a+theme_bw()+theme(
+    plot.title = element_text(size=12),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10)
+  )
+  
+  styled1a
+  grid.arrange(styled1,styled1a,nrow=1)
+}
